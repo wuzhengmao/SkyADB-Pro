@@ -9,9 +9,14 @@ import android.provider.Settings
 import com.qwadb.app.AppServices
 import com.qwadb.app.BuildConfig
 import com.qwadb.app.R
+import com.qwadb.app.adb.AdbIdentityManager
+import com.qwadb.app.adb.AdbKeyImportResult
+import com.qwadb.app.adb.AdbKeyConverter
 import com.qwadb.app.data.AppSettingsStore
 import com.qwadb.app.data.RecentDeviceStore
 import com.qwadb.app.data.ThemeMode
+import com.qwadb.app.diagnostics.DiagnosticLogger
+import com.qwadb.app.diagnostics.DiagnosticModule
 import com.qwadb.app.discovery.NetworkInfoProvider
 import com.qwadb.app.discovery.ScanRangeParser
 import com.qwadb.app.download.DownloadResult
@@ -19,9 +24,11 @@ import com.qwadb.app.i18n.AppLanguage
 import com.qwadb.app.i18n.appString
 import com.qwadb.app.scrcpy.MirrorQualityPreset
 import com.qwadb.app.validation.NetworkInputValidator
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,6 +37,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
+import timber.log.Timber
 
 data class SettingsUiState(
     val defaultPort: String = "5555",
@@ -60,7 +68,19 @@ data class SettingsUiState(
     val cameraFpsError: String? = null,
     val cameraBitrateError: String? = null,
     val statusRefreshIntervalError: String? = null,
+    val adbKeyFingerprintMd5: String? = null,
+    val adbKeyMessage: String? = null,
+    val adbKeyMessageIsError: Boolean = false,
+    val adbKeyBusy: Boolean = false,
+    val adbKeyConfirm: AdbKeyConfirm = AdbKeyConfirm.None,
 )
+
+/** ADB 密钥操作前的确认对话框。 */
+sealed interface AdbKeyConfirm {
+    data object None : AdbKeyConfirm
+    data object Import : AdbKeyConfirm
+    data object Regenerate : AdbKeyConfirm
+}
 
 class SettingsViewModel(
     private val settingsStore: AppSettingsStore = AppServices.settingsStore,
@@ -106,6 +126,7 @@ class SettingsViewModel(
                 }
             }
         }
+        refreshAdbKeyFingerprints()
     }
 
     fun onDefaultPortChanged(value: String) {
@@ -281,6 +302,160 @@ class SettingsViewModel(
     fun onClearRecentDevicesClicked() {
         viewModelScope.launch {
             recentDeviceStore.clear()
+        }
+    }
+
+    fun onAdbKeyImportClicked() {
+        state.value = state.value.copy(adbKeyConfirm = AdbKeyConfirm.Import, adbKeyMessage = null)
+    }
+
+    fun onAdbKeyRegenerateClicked() {
+        state.value = state.value.copy(adbKeyConfirm = AdbKeyConfirm.Regenerate, adbKeyMessage = null)
+    }
+
+    fun onAdbKeyConfirmDismissed() {
+        state.value = state.value.copy(adbKeyConfirm = AdbKeyConfirm.None)
+    }
+
+    /** 用户通过文件选择器选中的 adbkey 私钥，读取并导入替换当前密钥。 */
+    fun onAdbKeyFileSelected(uri: Uri) {
+        state.value = state.value.copy(adbKeyBusy = true, adbKeyMessage = null)
+        viewModelScope.launch {
+            val bytes = readPickedFile(uri)
+            val result = if (bytes == null) {
+                AdbKeyImportResult.InvalidKey
+            } else {
+                withContext(Dispatchers.IO) { AdbIdentityManager.importAdbKey(bytes) }
+            }
+            when (result) {
+                is AdbKeyImportResult.Success -> {
+                    refreshAdbKeyFingerprints()
+                    state.value = state.value.copy(
+                        adbKeyBusy = false,
+                        adbKeyMessage = appString(R.string.settings_adbkey_import_success),
+                        adbKeyMessageIsError = false,
+                    )
+                }
+                AdbKeyImportResult.InvalidKey -> state.value = state.value.copy(
+                    adbKeyBusy = false,
+                    adbKeyMessage = appString(R.string.settings_adbkey_import_invalid),
+                    adbKeyMessageIsError = true,
+                )
+                is AdbKeyImportResult.Failure -> {
+                    DiagnosticLogger.record(
+                        module = DiagnosticModule.App,
+                        operation = "导入 ADB 密钥",
+                        message = "adbkey 导入失败",
+                        suggestion = "请确认所选文件为未加密的 RSA 私钥（adbkey）后重试。",
+                        cause = result.cause,
+                    )
+                    state.value = state.value.copy(
+                        adbKeyBusy = false,
+                        adbKeyMessage = appString(R.string.settings_adbkey_import_failed),
+                        adbKeyMessageIsError = true,
+                    )
+                }
+            }
+        }
+    }
+
+    /** 确认重新生成密钥：放弃当前密钥，生成全新默认密钥。 */
+    fun onAdbKeyRegenerateConfirmed() {
+        state.value = state.value.copy(
+            adbKeyConfirm = AdbKeyConfirm.None,
+            adbKeyBusy = true,
+            adbKeyMessage = null,
+        )
+        viewModelScope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) { AdbIdentityManager.regenerateIdentity() }
+            }.onSuccess {
+                refreshAdbKeyFingerprints()
+                state.value = state.value.copy(
+                    adbKeyBusy = false,
+                    adbKeyMessage = appString(R.string.settings_adbkey_regenerate_success),
+                    adbKeyMessageIsError = false,
+                )
+            }.onFailure { error ->
+                DiagnosticLogger.record(
+                    module = DiagnosticModule.App,
+                    operation = "重新生成 ADB 密钥",
+                    message = "ADB 密钥重新生成失败",
+                    suggestion = "请重启应用后重试。",
+                    cause = error,
+                )
+                state.value = state.value.copy(
+                    adbKeyBusy = false,
+                    adbKeyMessage = appString(R.string.settings_adbkey_regenerate_failed),
+                    adbKeyMessageIsError = true,
+                )
+            }
+        }
+    }
+
+    /** 把当前私钥写入用户选择的目标位置。 */
+    fun onAdbKeyExportTo(uri: Uri) {
+        state.value = state.value.copy(adbKeyBusy = true, adbKeyMessage = null)
+        viewModelScope.launch {
+            val pem = withContext(Dispatchers.IO) { AdbIdentityManager.exportPrivateKeyPem() }
+            val written = pem != null && withContext(Dispatchers.IO) {
+                runCatching {
+                    AppServices.context.contentResolver.openOutputStream(uri).use { output ->
+                        requireNotNull(output)
+                        output.write(pem)
+                    }
+                }.isSuccess
+            }
+            state.value = state.value.copy(
+                adbKeyBusy = false,
+                adbKeyMessage = appString(
+                    if (written) R.string.settings_adbkey_export_success
+                    else R.string.settings_adbkey_export_failed,
+                ),
+                adbKeyMessageIsError = !written,
+            )
+        }
+    }
+
+    /** 从 Uri 读取文件内容，超过 [MaxAdbKeyFileBytes] 或读取失败返回 null。 */
+    private suspend fun readPickedFile(uri: Uri): ByteArray? = withContext(Dispatchers.IO) {
+        runCatching {
+            AppServices.context.contentResolver.openInputStream(uri)?.use { input ->
+                val buffer = ByteArrayOutputStream()
+                val chunk = ByteArray(8192)
+                var total = 0
+                while (true) {
+                    val read = input.read(chunk)
+                    if (read < 0) break
+                    total += read
+                    if (total > MaxAdbKeyFileBytes) return@withContext null
+                    buffer.write(chunk, 0, read)
+                }
+                buffer.toByteArray()
+            }
+        }.getOrNull()
+    }
+
+    /** 重新读取设备弹窗指纹，失败时延迟重试一次。 */
+    private fun refreshAdbKeyFingerprints() {
+        viewModelScope.launch {
+            repeat(2) { attempt ->
+                val md5 = withContext(Dispatchers.IO) {
+                    AdbIdentityManager.exportPrivateKeyPem()?.let { pem ->
+                        runCatching { AdbKeyConverter.deviceDialogFingerprint(pem) }
+                            .onFailure { error ->
+                                Timber.w(error, "计算设备弹窗指纹失败")
+                            }
+                            .getOrNull()
+                    }
+                }
+                state.value = state.value.copy(adbKeyFingerprintMd5 = md5)
+                if (md5 != null) return@launch
+                if (attempt == 0) {
+                    Timber.w("设备弹窗指纹读取失败，1 秒后重试")
+                    delay(1_000)
+                }
+            }
         }
     }
 
@@ -524,6 +699,9 @@ class SettingsViewModel(
 /** 系统状态刷新间隔范围（毫秒）。 */
 const val StatusRefreshIntervalMinMs = 500
 const val StatusRefreshIntervalMaxMs = 10_000
+
+/** 导入的 adbkey 文件大小上限（RSA 私钥通常约 1.7 KB）。 */
+const val MaxAdbKeyFileBytes = 1_048_576
 
 /** 版本更新检查状态。 */
 sealed interface UpdateCheckStatus {

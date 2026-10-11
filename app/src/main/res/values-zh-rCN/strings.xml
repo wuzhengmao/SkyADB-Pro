@@ -99,6 +99,26 @@
     <string name="settings_update_failed_hint">请检查网络连接后重试。</string>
     <string name="settings_update_download_failed">下载更新失败，请稍后重试。</string>
 
+    <!-- ADB identity -->
+    <string name="settings_adbkey_title">ADB 身份</string>
+    <string name="settings_adbkey_desc">复用电脑端 adbkey 的已授权指纹</string>
+    <string name="settings_adbkey_fingerprint_md5">设备弹窗指纹</string>
+    <string name="settings_adbkey_import">导入 adbkey</string>
+    <string name="settings_adbkey_regenerate">重新生成</string>
+    <string name="settings_adbkey_export">导出密钥</string>
+    <string name="settings_adbkey_import_confirm_title">导入 adbkey？</string>
+    <string name="settings_adbkey_import_confirm_text">导入的私钥将替换当前密钥。已用同一把 adbkey 授权过的设备无需重新授权；使用旧密钥授权的设备需要重新授权。</string>
+    <string name="settings_adbkey_regenerate_confirm_title">重新生成密钥？</string>
+    <string name="settings_adbkey_regenerate_confirm_text">将生成全新密钥，所有已授权设备都需要重新授权本应用。</string>
+    <string name="settings_adbkey_import_success">导入成功，指纹已更新</string>
+    <string name="settings_adbkey_import_invalid">不是有效的 ADB 私钥，请选择未加密的 RSA 私钥文件（adbkey），而不是 adbkey.pub。</string>
+    <string name="settings_adbkey_import_failed">密钥导入失败，请重试</string>
+    <string name="settings_adbkey_regenerate_success">已生成新密钥</string>
+    <string name="settings_adbkey_regenerate_failed">生成新密钥失败</string>
+    <string name="settings_adbkey_export_success">密钥已导出</string>
+    <string name="settings_adbkey_export_failed">密钥导出失败</string>
+    <string name="settings_adbkey_busy">处理中…</string>
+
     <!-- QR share -->
     <string name="qr_share_title">分享连接</string>
     <string name="qr_share_desc">扫码连接设备</string>

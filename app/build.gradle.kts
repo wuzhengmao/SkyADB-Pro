@@ -80,6 +80,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.kadb)
+    implementation(libs.bcpkix.jdk18on)
     implementation(libs.fastboot.java)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.okhttp)

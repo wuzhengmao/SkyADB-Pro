@@ -4,6 +4,8 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -19,12 +21,14 @@ import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.CleaningServices
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.Fingerprint
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.SettingsEthernet
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Videocam
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
@@ -43,6 +47,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -65,6 +70,14 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val importPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(viewModel::onAdbKeyFileSelected)
+    }
+    val exportPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream"),
+    ) { uri ->
+        uri?.let(viewModel::onAdbKeyExportTo)
+    }
 
     SettingsContent(
         bottomPadding = bottomPadding,
@@ -84,6 +97,15 @@ fun SettingsScreen(
         onStatusRefreshIntervalChanged = viewModel::onStatusRefreshIntervalChanged,
         onLanguageSelected = viewModel::onLanguageSelected,
         onClearRecentDevicesClicked = viewModel::onClearRecentDevicesClicked,
+        onAdbKeyImportClick = viewModel::onAdbKeyImportClicked,
+        onAdbKeyRegenerateClick = viewModel::onAdbKeyRegenerateClicked,
+        onAdbKeyConfirmDismissed = viewModel::onAdbKeyConfirmDismissed,
+        onAdbKeyImportConfirmed = {
+            viewModel.onAdbKeyConfirmDismissed()
+            importPicker.launch(arrayOf("*/*"))
+        },
+        onAdbKeyRegenerateConfirmed = viewModel::onAdbKeyRegenerateConfirmed,
+        onAdbKeyExportClick = { exportPicker.launch("adbkey") },
         onDiagnosticsClick = onDiagnosticsClick,
         onCheckForUpdatesClick = onCheckForUpdatesClick ?: viewModel::checkForUpdates,
         onDownloadUpdateClick = viewModel::downloadUpdate,
@@ -111,6 +133,12 @@ private fun SettingsContent(
     onStatusRefreshIntervalChanged: (String) -> Unit,
     onLanguageSelected: (AppLanguage) -> Unit,
     onClearRecentDevicesClicked: () -> Unit,
+    onAdbKeyImportClick: () -> Unit,
+    onAdbKeyRegenerateClick: () -> Unit,
+    onAdbKeyConfirmDismissed: () -> Unit,
+    onAdbKeyImportConfirmed: () -> Unit,
+    onAdbKeyRegenerateConfirmed: () -> Unit,
+    onAdbKeyExportClick: () -> Unit,
     onDiagnosticsClick: () -> Unit,
     onCheckForUpdatesClick: () -> Unit,
     onDownloadUpdateClick: () -> Unit,
@@ -209,6 +237,64 @@ private fun SettingsContent(
                             isError = uiState.scanRangesError != null,
                             supportingText = uiState.scanRangesError?.let { { Text(it) } },
                         )
+                    }
+                }
+            }
+
+            item {
+                SettingGroupCard {
+                    SettingBlock(
+                        icon = Icons.Outlined.Fingerprint,
+                        title = stringResource(R.string.settings_adbkey_title),
+                        description = stringResource(R.string.settings_adbkey_desc),
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            uiState.adbKeyFingerprintMd5?.let { md5 ->
+                                Text(
+                                    text = stringResource(R.string.settings_adbkey_fingerprint_md5) + ": " + md5,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TextButton(
+                                    enabled = !uiState.adbKeyBusy,
+                                    onClick = onAdbKeyImportClick,
+                                ) {
+                                    Text(stringResource(R.string.settings_adbkey_import))
+                                }
+                                TextButton(
+                                    enabled = !uiState.adbKeyBusy,
+                                    onClick = onAdbKeyRegenerateClick,
+                                ) {
+                                    Text(stringResource(R.string.settings_adbkey_regenerate))
+                                }
+                                TextButton(
+                                    enabled = !uiState.adbKeyBusy,
+                                    onClick = onAdbKeyExportClick,
+                                ) {
+                                    Text(stringResource(R.string.settings_adbkey_export))
+                                }
+                            }
+                            when {
+                                uiState.adbKeyMessage != null -> Text(
+                                    text = uiState.adbKeyMessage,
+                                    color = if (uiState.adbKeyMessageIsError) {
+                                        MaterialTheme.colorScheme.error
+                                    } else {
+                                        MaterialTheme.colorScheme.primary
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                                uiState.adbKeyBusy -> Text(
+                                    text = stringResource(R.string.settings_adbkey_busy),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -465,6 +551,40 @@ private fun SettingsContent(
                 }
             }
         }
+
+        when (uiState.adbKeyConfirm) {
+            AdbKeyConfirm.Import -> AlertDialog(
+                onDismissRequest = onAdbKeyConfirmDismissed,
+                title = { Text(stringResource(R.string.settings_adbkey_import_confirm_title)) },
+                text = { Text(stringResource(R.string.settings_adbkey_import_confirm_text)) },
+                confirmButton = {
+                    TextButton(onClick = onAdbKeyImportConfirmed) {
+                        Text(stringResource(R.string.action_confirm))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = onAdbKeyConfirmDismissed) {
+                        Text(stringResource(R.string.action_cancel))
+                    }
+                },
+            )
+            AdbKeyConfirm.Regenerate -> AlertDialog(
+                onDismissRequest = onAdbKeyConfirmDismissed,
+                title = { Text(stringResource(R.string.settings_adbkey_regenerate_confirm_title)) },
+                text = { Text(stringResource(R.string.settings_adbkey_regenerate_confirm_text)) },
+                confirmButton = {
+                    TextButton(onClick = onAdbKeyRegenerateConfirmed) {
+                        Text(stringResource(R.string.action_confirm))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = onAdbKeyConfirmDismissed) {
+                        Text(stringResource(R.string.action_cancel))
+                    }
+                },
+            )
+            AdbKeyConfirm.None -> Unit
+        }
     }
 }
 
@@ -526,6 +646,12 @@ private fun SettingsContentPreview() {
             onStatusRefreshIntervalChanged = {},
             onLanguageSelected = {},
             onClearRecentDevicesClicked = {},
+            onAdbKeyImportClick = {},
+            onAdbKeyRegenerateClick = {},
+            onAdbKeyConfirmDismissed = {},
+            onAdbKeyImportConfirmed = {},
+            onAdbKeyRegenerateConfirmed = {},
+            onAdbKeyExportClick = {},
             onDiagnosticsClick = {},
             onCheckForUpdatesClick = {},
             onDownloadUpdateClick = {},

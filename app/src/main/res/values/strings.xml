@@ -99,6 +99,26 @@
     <string name="settings_update_failed_hint">Please check your network connection and try again.</string>
     <string name="settings_update_download_failed">Update download failed, please try again later.</string>
 
+    <!-- ADB identity -->
+    <string name="settings_adbkey_title">ADB identity</string>
+    <string name="settings_adbkey_desc">Reuse your computer\'s trusted adbkey fingerprint</string>
+    <string name="settings_adbkey_fingerprint_md5">Device dialog fingerprint</string>
+    <string name="settings_adbkey_import">Import adbkey</string>
+    <string name="settings_adbkey_regenerate">Regenerate</string>
+    <string name="settings_adbkey_export">Export key</string>
+    <string name="settings_adbkey_import_confirm_title">Import adbkey?</string>
+    <string name="settings_adbkey_import_confirm_text">The imported private key will replace the current key. Devices already authorized with this same key will not re-prompt; devices authorized with the old key will need to re-authorize.</string>
+    <string name="settings_adbkey_regenerate_confirm_title">Regenerate key?</string>
+    <string name="settings_adbkey_regenerate_confirm_text">A new key will be generated and all previously authorized devices will need to re-authorize this app.</string>
+    <string name="settings_adbkey_import_success">Key imported, fingerprint updated</string>
+    <string name="settings_adbkey_import_invalid">Not a valid ADB private key. Select the unencrypted RSA private key file (adbkey), not adbkey.pub.</string>
+    <string name="settings_adbkey_import_failed">Key import failed, please try again</string>
+    <string name="settings_adbkey_regenerate_success">A new key has been generated</string>
+    <string name="settings_adbkey_regenerate_failed">Failed to generate a new key</string>
+    <string name="settings_adbkey_export_success">Key exported</string>
+    <string name="settings_adbkey_export_failed">Key export failed</string>
+    <string name="settings_adbkey_busy">Working…</string>
+
     <!-- QR share -->
     <string name="qr_share_title">Share connection</string>
     <string name="qr_share_desc">Scan the QR code to connect</string>
