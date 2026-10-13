@@ -771,6 +771,12 @@
     <string name="home_waiting_usb_permission">Waiting for USB permission\u2026</string>
     <string name="home_usb_otg_connecting">Connecting to %1$s device via USB OTG\u2026</string>
     <string name="home_usb_connect_success">USB connected: %1$s</string>
+    <string name="home_usb_auto_tcpip_title">Auto-enable remote connection</string>
+    <string name="home_usb_auto_tcpip_desc">Run tcpip after USB connection and fill in the device IP for Wi-Fi access</string>
+    <string name="home_usb_tcpip_success">Remote connection enabled on port %1$d</string>
+    <string name="home_usb_tcpip_success_ip_filled">Remote connection enabled on port %1$d, device IP filled in</string>
+    <string name="home_usb_tcpip_failed">Failed to enable remote connection</string>
+    <string name="home_usb_tcpip_failed_hint">The device is still connected via USB. You can run tcpip manually in Shell.</string>
 
     <!-- ViewModel operation status: Device discovery -->
     <string name="discovery_cannot_scan_lan">Cannot scan the LAN</string>

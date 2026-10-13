@@ -771,6 +771,12 @@
     <string name="home_waiting_usb_permission">等待 USB 授权\u2026</string>
     <string name="home_usb_otg_connecting">正在通过 USB OTG 连接 %1$s 设备\u2026</string>
     <string name="home_usb_connect_success">USB 连接成功：%1$s</string>
+    <string name="home_usb_auto_tcpip_title">自动开启远程连接</string>
+    <string name="home_usb_auto_tcpip_desc">USB 连接成功后自动执行 tcpip 并获取设备 IP，可通过 WiFi 连接</string>
+    <string name="home_usb_tcpip_success">已开启远程连接（端口 %1$d）</string>
+    <string name="home_usb_tcpip_success_ip_filled">已开启远程连接（端口 %1$d），已填入设备 IP</string>
+    <string name="home_usb_tcpip_failed">开启远程连接失败</string>
+    <string name="home_usb_tcpip_failed_hint">设备仍通过 USB 连接，可稍后在 Shell 中手动执行 tcpip。</string>
 
     <!-- ViewModel operation status: Device discovery -->
     <string name="discovery_cannot_scan_lan">无法扫描局域网</string>

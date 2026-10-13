@@ -32,6 +32,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -133,6 +134,8 @@ fun HomeScreen(
                 UsbOtgConnectCard(
                     attachments = uiState.usbAttachments,
                     connectingDeviceName = uiState.connectingUsbDeviceName,
+                    autoTcpipEnabled = uiState.usbAutoTcpipEnabled,
+                    onAutoTcpipChanged = viewModel::onUsbAutoTcpipChanged,
                     onRefreshClick = viewModel::refreshUsbDevices,
                     onConnectClick = viewModel::onUsbConnectClicked,
                 )
@@ -152,6 +155,8 @@ fun HomeScreen(
 private fun UsbOtgConnectCard(
     attachments: List<UsbOtgAttachment>,
     connectingDeviceName: String?,
+    autoTcpipEnabled: Boolean,
+    onAutoTcpipChanged: (Boolean) -> Unit,
     onRefreshClick: () -> Unit,
     onConnectClick: (String) -> Unit,
 ) {
@@ -181,6 +186,28 @@ private fun UsbOtgConnectCard(
                     }
                 },
             )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.home_usb_auto_tcpip_title),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                    Text(
+                        text = stringResource(R.string.home_usb_auto_tcpip_desc),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Switch(
+                    checked = autoTcpipEnabled,
+                    onCheckedChange = onAutoTcpipChanged,
+                )
+            }
 
             if (attachments.isEmpty()) {
                 EmptyState(title = stringResource(R.string.home_no_usb_devices))

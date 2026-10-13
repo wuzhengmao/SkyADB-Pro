@@ -19,6 +19,7 @@ import com.qwadb.app.validation.NetworkInputValidator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 data class HomeUiState(
@@ -26,6 +27,7 @@ data class HomeUiState(
     val port: String = "5555",
     val recentDevices: List<AdbDevice> = emptyList(),
     val usbAttachments: List<UsbOtgAttachment> = emptyList(),
+    val usbAutoTcpipEnabled: Boolean = false,
     val ipError: String? = null,
     val portError: String? = null,
     val connectEnabled: Boolean = false,
@@ -57,6 +59,9 @@ class HomeViewModel(
                 if (current.port == HomeUiState().port) {
                     updateForm(ip = current.ip, port = settings.defaultPort.toString())
                 }
+                state.value = state.value.copy(
+                    usbAutoTcpipEnabled = settings.usbAutoTcpipEnabled,
+                )
             }
         }
         viewModelScope.launch {
@@ -193,6 +198,13 @@ class HomeViewModel(
         connectUsbOtg(deviceName)
     }
 
+    fun onUsbAutoTcpipChanged(enabled: Boolean) {
+        state.value = state.value.copy(usbAutoTcpipEnabled = enabled)
+        viewModelScope.launch {
+            settingsStore.updateUsbAutoTcpipEnabled(enabled)
+        }
+    }
+
     /**
      * 官方 USB Host 文档：Detached 仅应清理与该 [UsbDevice] 的通信。
      * 根因：此前对任意拔出都 disconnect，会误杀 Wi‑Fi ADB 会话。
@@ -234,6 +246,9 @@ class HomeViewModel(
                         canDisconnect = true,
                         operationStatus = OperationStatus.Success(appString(R.string.home_usb_connect_success, result.data)),
                     )
+                    if (attachment?.mode == UsbOtgMode.Adb && state.value.usbAutoTcpipEnabled) {
+                        enableRemoteConnectionOverUsb()
+                    }
                 }
                 is AdbOperationResult.Failure -> {
                     state.value = state.value.copy(
@@ -244,6 +259,45 @@ class HomeViewModel(
                 }
             }
         }
+    }
+
+    /**
+     * 勾选「自动开启远程连接」后：USB ADB 连接成功时自动执行 `tcpip <默认端口>`，
+     * 并 best-effort 获取设备 WiFi IP 回填连接表单。
+     */
+    private suspend fun enableRemoteConnectionOverUsb() {
+        val port = settingsStore.settings.first().defaultPort
+        val tcpipResult = adbRepository.runShell("tcpip $port")
+        if (tcpipResult !is AdbOperationResult.Success || tcpipResult.data.exitCode != 0) {
+            state.value = state.value.copy(
+                operationStatus = OperationStatus.Failed(
+                    text = appString(R.string.home_usb_tcpip_failed),
+                    suggestion = appString(R.string.home_usb_tcpip_failed_hint),
+                ),
+            )
+            return
+        }
+        val ip = resolveDeviceWifiIp()
+        val status = if (ip != null) {
+            updateForm(ip = ip, port = port.toString())
+            OperationStatus.Success(appString(R.string.home_usb_tcpip_success_ip_filled, port))
+        } else {
+            OperationStatus.Success(appString(R.string.home_usb_tcpip_success, port))
+        }
+        state.value = state.value.copy(operationStatus = status)
+    }
+
+    /** 通过 shell 查询设备 WiFi IP，best-effort。 */
+    private suspend fun resolveDeviceWifiIp(): String? {
+        val ipResult = adbRepository.runShell("ip -4 addr show wlan0")
+        if (ipResult is AdbOperationResult.Success) {
+            parseWlanIp(ipResult.data.output)?.let { return it }
+        }
+        val ifconfigResult = adbRepository.runShell("ifconfig wlan0")
+        if (ifconfigResult is AdbOperationResult.Success) {
+            parseWlanIp(ifconfigResult.data.output)?.let { return it }
+        }
+        return null
     }
 
     private fun updateForm(ip: String, port: String) {
@@ -275,3 +329,18 @@ private data class ValidationResult(
     val portError: String?,
     val isValid: Boolean,
 )
+
+/** 从 `ip addr` / `ifconfig` 输出中提取第一个合法 IPv4 地址。 */
+internal fun parseWlanIp(output: String): String? {
+    val patterns = listOf(
+        // ip -4 addr show wlan0：inet 192.168.1.5/24 brd ...
+        Regex("""inet\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"""),
+        // ifconfig wlan0：inet addr:192.168.1.5  Bcast:...
+        Regex("""inet addr:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"""),
+    )
+    for (pattern in patterns) {
+        val ip = pattern.find(output)?.groupValues?.get(1) ?: continue
+        if (ip.split('.').all { it.toIntOrNull() in 0..255 }) return ip
+    }
+    return null
+}

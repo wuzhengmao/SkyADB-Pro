@@ -37,6 +37,7 @@ data class AppSettings(
     val cameraFps: Int = 30,
     val cameraBitrateMbps: Int = 4,
     val statusRefreshIntervalMs: Int = 5000,
+    val usbAutoTcpipEnabled: Boolean = false,
 ) {
     val mirrorCustomMaxSize: Int
         get() = parseResolutionSize(mirrorCustomResolution, MirrorDefaultMaxSize)
@@ -77,6 +78,7 @@ class AppSettingsStore(context: Context) {
                 cameraFps = preferences[Keys.CameraFps] ?: 30,
                 cameraBitrateMbps = preferences[Keys.CameraBitrateMbps] ?: 4,
                 statusRefreshIntervalMs = preferences[Keys.StatusRefreshIntervalMs] ?: 5000,
+                usbAutoTcpipEnabled = preferences[Keys.UsbAutoTcpipEnabled] ?: false,
             )
         }
 
@@ -164,6 +166,12 @@ class AppSettingsStore(context: Context) {
         }
     }
 
+    suspend fun updateUsbAutoTcpipEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[Keys.UsbAutoTcpipEnabled] = enabled
+        }
+    }
+
     private object Keys {
         val DefaultPort = intPreferencesKey("default_port")
         val ConnectionTimeoutSeconds = intPreferencesKey("connection_timeout_seconds")
@@ -179,5 +187,6 @@ class AppSettingsStore(context: Context) {
         val CameraFps = intPreferencesKey("camera_fps")
         val CameraBitrateMbps = intPreferencesKey("camera_bitrate_mbps")
         val StatusRefreshIntervalMs = intPreferencesKey("status_refresh_interval_ms")
+        val UsbAutoTcpipEnabled = booleanPreferencesKey("usb_auto_tcpip_enabled")
     }
 }
