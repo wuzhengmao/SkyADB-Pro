@@ -35,6 +35,7 @@ interface AdbRepository {
     val selectedDeviceInfo: Flow<DeviceInfo>
     suspend fun connect(host: String, port: Int): AdbOperationResult<String>
     suspend fun connectUsbOtg(deviceName: String): AdbOperationResult<String>
+    suspend fun enableTcpIp(port: Int): AdbOperationResult<String>
     suspend fun runFastbootCommand(command: String): AdbOperationResult<String>
     suspend fun pair(host: String, port: Int, pairingCode: String): AdbOperationResult<Unit>
     suspend fun refreshDeviceInfo(): AdbOperationResult<DeviceInfo>
@@ -196,6 +197,17 @@ class DefaultAdbRepository(
         }
 
         return result.logFailure(DiagnosticModule.UsbOtg, "USB OTG 连接", deviceName)
+    }
+
+    override suspend fun enableTcpIp(port: Int): AdbOperationResult<String> {
+        if (kadbManager.sessionKind() == AdbSessionKind.UsbFastboot) {
+            return AdbOperationResult.Failure(
+                message = appString(R.string.repo_fastboot_no_shell),
+                suggestion = appString(R.string.repo_fastboot_no_shell_suggestion),
+            )
+        }
+        return kadbManager.enableTcpIp(port)
+            .logFailure(DiagnosticModule.UsbOtg, "开启远程连接", port.toString())
     }
 
     override suspend fun runFastbootCommand(command: String): AdbOperationResult<String> {

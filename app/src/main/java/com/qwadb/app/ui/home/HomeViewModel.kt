@@ -264,11 +264,15 @@ class HomeViewModel(
     /**
      * 勾选「自动开启远程连接」后：USB ADB 连接成功时自动执行 `tcpip <默认端口>`，
      * 并 best-effort 获取设备 WiFi IP 回填连接表单。
+     *
+     * 顺序说明：tcpip 服务请求会导致设备端 adbd 重启、当前 USB 会话中断，
+     * 因此先趁会话存活获取 IP，再发送 tcpip，成功后清理会话状态。
      */
     private suspend fun enableRemoteConnectionOverUsb() {
         val port = settingsStore.settings.first().defaultPort
-        val tcpipResult = adbRepository.runShell("tcpip $port")
-        if (tcpipResult !is AdbOperationResult.Success || tcpipResult.data.exitCode != 0) {
+        val ip = resolveDeviceWifiIp()
+        val tcpipResult = adbRepository.enableTcpIp(port)
+        if (tcpipResult !is AdbOperationResult.Success) {
             state.value = state.value.copy(
                 operationStatus = OperationStatus.Failed(
                     text = appString(R.string.home_usb_tcpip_failed),
@@ -277,7 +281,13 @@ class HomeViewModel(
             )
             return
         }
-        val ip = resolveDeviceWifiIp()
+        // adbd 已重启，当前 USB 会话失效，清理状态避免残留假连接
+        adbRepository.disconnect()
+        state.value = state.value.copy(
+            canDisconnect = false,
+            connectingUsbDeviceName = null,
+            connectEnabled = true,
+        )
         val status = if (ip != null) {
             updateForm(ip = ip, port = port.toString())
             OperationStatus.Success(appString(R.string.home_usb_tcpip_success_ip_filled, port))

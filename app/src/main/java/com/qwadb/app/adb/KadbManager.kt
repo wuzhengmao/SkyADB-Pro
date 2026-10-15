@@ -194,6 +194,29 @@ class KadbManager {
         }
     }
 
+    /**
+     * 向 adbd 发送 `tcpip:<port>` 服务请求（等价于桌面 `adb tcpip`）。
+     * 注意：设备端 adbd 会因端口属性变化而重启，当前会话可能随之中断，
+     * 调用方应在成功后自行清理会话状态。
+     */
+    suspend fun enableTcpIp(port: Int): AdbOperationResult<String> = withContext(Dispatchers.IO) {
+        val kadb = activeKadb ?: return@withContext AdbOperationResult.Failure(
+            message = appString(R.string.kadb_not_connected),
+            suggestion = appString(R.string.kadb_connect_before_shell_suggestion),
+        )
+
+        runCatching {
+            kadb.open("tcpip:$port").use { }
+            AdbOperationResult.Success(port.toString())
+        }.getOrElse { error ->
+            AdbOperationResult.Failure(
+                message = appString(R.string.kadb_tcpip_failed),
+                suggestion = appString(R.string.kadb_tcpip_failed_suggestion),
+                cause = error,
+            )
+        }
+    }
+
     suspend fun fetchDeviceInfo(): AdbOperationResult<DeviceInfo> = withContext(Dispatchers.IO) {
         val kadb = activeKadb ?: return@withContext AdbOperationResult.Failure(
             message = appString(R.string.kadb_not_connected),

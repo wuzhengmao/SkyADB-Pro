@@ -474,6 +474,8 @@
     <string name="kadb_pair_failed_suggestion">Make sure the pairing code hasn\'t expired, and the pairing IP and port match the pairing dialog on the target device.</string>
     <string name="kadb_command_failed">Command execution failed</string>
     <string name="kadb_command_failed_suggestion">Check that the command is correct, or make sure the device is still connected.</string>
+    <string name="kadb_tcpip_failed">The device did not respond to the tcpip request</string>
+    <string name="kadb_tcpip_failed_suggestion">Make sure the device is still connected via USB and try again.</string>
     <string name="kadb_read_device_info_failed">Failed to read device info</string>
     <string name="kadb_read_device_info_suggestion">Make sure the device is still online and allows ADB commands.</string>
     <string name="kadb_apk_install_failed">APK installation failed</string>
@@ -776,7 +778,7 @@
     <string name="home_usb_tcpip_success">Remote connection enabled on port %1$d</string>
     <string name="home_usb_tcpip_success_ip_filled">Remote connection enabled on port %1$d, device IP filled in</string>
     <string name="home_usb_tcpip_failed">Failed to enable remote connection</string>
-    <string name="home_usb_tcpip_failed_hint">The device is still connected via USB. You can run tcpip manually in Shell.</string>
+    <string name="home_usb_tcpip_failed_hint">The device is still connected via USB. Please check the USB connection and try again.</string>
 
     <!-- ViewModel operation status: Device discovery -->
     <string name="discovery_cannot_scan_lan">Cannot scan the LAN</string>

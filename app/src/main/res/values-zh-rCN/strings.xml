@@ -474,6 +474,8 @@
     <string name="kadb_pair_failed_suggestion">请确认配对码未过期，配对 IP 和配对端口来自目标设备的配对窗口。</string>
     <string name="kadb_command_failed">命令执行失败</string>
     <string name="kadb_command_failed_suggestion">请检查命令是否正确，或确认设备仍保持连接。</string>
+    <string name="kadb_tcpip_failed">设备未响应 tcpip 请求</string>
+    <string name="kadb_tcpip_failed_suggestion">请确认设备仍通过 USB 连接后重试。</string>
     <string name="kadb_read_device_info_failed">读取设备信息失败</string>
     <string name="kadb_read_device_info_suggestion">请确认设备仍在线，并允许执行 ADB 命令。</string>
     <string name="kadb_apk_install_failed">APK 安装失败</string>
@@ -776,7 +778,7 @@
     <string name="home_usb_tcpip_success">已开启远程连接（端口 %1$d）</string>
     <string name="home_usb_tcpip_success_ip_filled">已开启远程连接（端口 %1$d），已填入设备 IP</string>
     <string name="home_usb_tcpip_failed">开启远程连接失败</string>
-    <string name="home_usb_tcpip_failed_hint">设备仍通过 USB 连接，可稍后在 Shell 中手动执行 tcpip。</string>
+    <string name="home_usb_tcpip_failed_hint">设备仍通过 USB 连接，请检查 USB 连接后重试。</string>
 
     <!-- ViewModel operation status: Device discovery -->
     <string name="discovery_cannot_scan_lan">无法扫描局域网</string>
