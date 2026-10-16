@@ -6,6 +6,8 @@ import com.qwadb.app.AppServices
 import com.qwadb.app.R
 import com.qwadb.app.adb.AdbSessionKind
 import com.qwadb.app.data.AppSettingsStore
+import com.qwadb.app.diagnostics.DiagnosticLogger
+import com.qwadb.app.diagnostics.DiagnosticModule
 import com.qwadb.app.i18n.appString
 import com.qwadb.app.model.AdbDevice
 import com.qwadb.app.model.AdbOperationResult
@@ -267,10 +269,22 @@ class HomeViewModel(
      *
      * 顺序说明：tcpip 服务请求会导致设备端 adbd 重启、当前 USB 会话中断，
      * 因此先趁会话存活获取 IP，再发送 tcpip，成功后清理会话状态。
+     * 每一步都会写入持久化的诊断日志，便于事后排查。
      */
     private suspend fun enableRemoteConnectionOverUsb() {
         val port = settingsStore.settings.first().defaultPort
-        val ip = resolveDeviceWifiIp()
+        DiagnosticLogger.recordInfo(
+            module = DiagnosticModule.UsbOtg,
+            operation = AutoTcpipOperation,
+            message = "USB 连接成功，开始读取设备 IP 并发送 tcpip $port 请求",
+        )
+        val resolution = resolveDeviceWifiIp()
+        DiagnosticLogger.recordInfo(
+            module = DiagnosticModule.UsbOtg,
+            operation = AutoTcpipOperation,
+            message = resolution.ip?.let { "设备 WiFi IP：$it（${resolution.detail}）" }
+                ?: "未读取到设备 WiFi IP（${resolution.detail}）",
+        )
         val tcpipResult = adbRepository.enableTcpIp(port)
         if (tcpipResult !is AdbOperationResult.Success) {
             state.value = state.value.copy(
@@ -281,6 +295,11 @@ class HomeViewModel(
             )
             return
         }
+        DiagnosticLogger.recordInfo(
+            module = DiagnosticModule.UsbOtg,
+            operation = AutoTcpipOperation,
+            message = "tcpip $port 请求已被设备接受（adbd 将重启，USB 会话随之中断）",
+        )
         // adbd 已重启，当前 USB 会话失效，清理状态避免残留假连接
         adbRepository.disconnect()
         state.value = state.value.copy(
@@ -288,27 +307,46 @@ class HomeViewModel(
             connectingUsbDeviceName = null,
             connectEnabled = true,
         )
-        val status = if (ip != null) {
-            updateForm(ip = ip, port = port.toString())
+        val status = if (resolution.ip != null) {
+            updateForm(ip = resolution.ip, port = port.toString())
             OperationStatus.Success(appString(R.string.home_usb_tcpip_success_ip_filled, port))
         } else {
-            OperationStatus.Success(appString(R.string.home_usb_tcpip_success, port))
+            OperationStatus.Success(appString(R.string.home_usb_tcpip_success_no_ip, port))
         }
         state.value = state.value.copy(operationStatus = status)
     }
 
-    /** 通过 shell 查询设备 WiFi IP，best-effort。 */
-    private suspend fun resolveDeviceWifiIp(): String? {
+    /** 通过 shell 查询设备 WiFi IP，best-effort；detail 记录各命令的执行结果供日志排查。 */
+    private suspend fun resolveDeviceWifiIp(): WifiIpResolution {
+        val details = mutableListOf<String>()
         val ipResult = adbRepository.runShell("ip -4 addr show wlan0")
-        if (ipResult is AdbOperationResult.Success) {
-            parseWlanIp(ipResult.data.output)?.let { return it }
+        when (ipResult) {
+            is AdbOperationResult.Success -> {
+                val ip = parseWlanIp(ipResult.data.output)
+                details += "ip -4 addr show wlan0：exit=${ipResult.data.exitCode}" +
+                    if (ip != null) "，解析到 $ip" else "，未匹配到地址"
+                if (ip != null) return WifiIpResolution(ip, details.joinToString("；"))
+            }
+            is AdbOperationResult.Failure -> {
+                details += "ip -4 addr show wlan0：执行失败（${ipResult.message}）"
+            }
         }
         val ifconfigResult = adbRepository.runShell("ifconfig wlan0")
-        if (ifconfigResult is AdbOperationResult.Success) {
-            parseWlanIp(ifconfigResult.data.output)?.let { return it }
+        when (ifconfigResult) {
+            is AdbOperationResult.Success -> {
+                val ip = parseWlanIp(ifconfigResult.data.output)
+                details += "ifconfig wlan0：exit=${ifconfigResult.data.exitCode}" +
+                    if (ip != null) "，解析到 $ip" else "，未匹配到地址"
+                if (ip != null) return WifiIpResolution(ip, details.joinToString("；"))
+            }
+            is AdbOperationResult.Failure -> {
+                details += "ifconfig wlan0：执行失败（${ifconfigResult.message}）"
+            }
         }
-        return null
+        return WifiIpResolution(null, details.joinToString("；"))
     }
+
+    private data class WifiIpResolution(val ip: String?, val detail: String)
 
     private fun updateForm(ip: String, port: String) {
         val validation = validateForm(ip, port)
@@ -339,6 +377,9 @@ private data class ValidationResult(
     val portError: String?,
     val isValid: Boolean,
 )
+
+/** 自动开启远程连接流程的日志操作名。 */
+internal const val AutoTcpipOperation = "自动开启远程连接"
 
 /** 从 `ip addr` / `ifconfig` 输出中提取第一个合法 IPv4 地址。 */
 internal fun parseWlanIp(output: String): String? {

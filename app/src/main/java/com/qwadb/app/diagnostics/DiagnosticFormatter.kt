@@ -22,7 +22,9 @@ object DiagnosticFormatter {
             appendLine(appString(R.string.diagnostic_format_operation, log.operation))
             log.target?.let { appendLine(appString(R.string.diagnostic_format_target, it)) }
             appendLine(appString(R.string.diagnostic_format_reason, log.message))
-            appendLine(appString(R.string.diagnostic_format_suggestion, log.suggestion))
+            if (log.suggestion.isNotBlank()) {
+                appendLine(appString(R.string.diagnostic_format_suggestion, log.suggestion))
+            }
             if (log.errorClass != null || log.errorMessage != null) {
                 append(appString(R.string.diagnostic_format_error))
                 append(log.errorClass.orEmpty())

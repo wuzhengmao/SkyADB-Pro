@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.qwadb.app.R
 import com.qwadb.app.diagnostics.DiagnosticFormatter
+import com.qwadb.app.diagnostics.DiagnosticLevel
 import com.qwadb.app.diagnostics.DiagnosticLog
 import com.qwadb.app.diagnostics.DiagnosticModule
 import com.qwadb.app.ui.components.EmptyState
@@ -168,14 +169,20 @@ private fun DiagnosticLogCard(log: DiagnosticLog) {
             }
             Text(
                 text = log.message,
-                color = MaterialTheme.colorScheme.error,
+                color = if (log.level == DiagnosticLevel.Error) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
                 style = MaterialTheme.typography.bodyMedium,
             )
-            Text(
-                text = log.suggestion,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall,
-            )
+            if (log.suggestion.isNotBlank()) {
+                Text(
+                    text = log.suggestion,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
             log.errorMessage?.takeIf { it.isNotBlank() }?.let {
                 Text(
                     text = it,

@@ -404,10 +404,10 @@
     <string name="syslog_copied_toast">Current log copied</string>
 
     <!-- Diagnostic log screen -->
-    <string name="diagnostics_subtitle">Only errors from the current run are kept</string>
+    <string name="diagnostics_subtitle">Records persist across app restarts</string>
     <string name="diagnostics_clip_label">Diagnostic log</string>
     <string name="diagnostics_copied_toast">Diagnostic log copied</string>
-    <string name="diagnostics_recent_errors_title">Recent errors</string>
+    <string name="diagnostics_recent_errors_title">Recent records</string>
     <string name="diagnostics_count_format">%1$d items</string>
     <string name="diagnostics_empty_title">No diagnostic logs</string>
     <string name="diagnostics_empty_message">Connection or feature failures are automatically recorded here.</string>
@@ -776,6 +776,7 @@
     <string name="home_usb_auto_tcpip_title">Auto-enable remote connection</string>
     <string name="home_usb_auto_tcpip_desc">Run tcpip after USB connection and fill in the device IP for Wi-Fi access</string>
     <string name="home_usb_tcpip_success">Remote connection enabled on port %1$d</string>
+    <string name="home_usb_tcpip_success_no_ip">Remote connection enabled on port %1$d, but the device Wi-Fi IP could not be read (the device may not be on Wi-Fi)</string>
     <string name="home_usb_tcpip_success_ip_filled">Remote connection enabled on port %1$d, device IP filled in</string>
     <string name="home_usb_tcpip_failed">Failed to enable remote connection</string>
     <string name="home_usb_tcpip_failed_hint">The device is still connected via USB. Please check the USB connection and try again.</string>

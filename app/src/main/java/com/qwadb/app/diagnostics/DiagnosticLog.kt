@@ -11,9 +11,16 @@ data class DiagnosticLog(
     val target: String? = null,
     val message: String,
     val suggestion: String,
+    val level: DiagnosticLevel = DiagnosticLevel.Error,
     val errorClass: String? = null,
     val errorMessage: String? = null,
 )
+
+/** 日志级别：错误（默认）与信息（用于关键流程步骤留痕）。 */
+enum class DiagnosticLevel {
+    Info,
+    Error,
+}
 
 enum class DiagnosticModule(@param:StringRes val labelRes: Int) {
     App(R.string.diagnostic_module_app),

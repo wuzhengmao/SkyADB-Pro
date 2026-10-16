@@ -404,10 +404,10 @@
     <string name="syslog_copied_toast">已复制当前日志</string>
 
     <!-- Diagnostic log screen -->
-    <string name="diagnostics_subtitle">仅保留本次运行的错误信息</string>
+    <string name="diagnostics_subtitle">记录会持久保存，重启应用后仍可查看</string>
     <string name="diagnostics_clip_label">诊断日志</string>
     <string name="diagnostics_copied_toast">已复制诊断日志</string>
-    <string name="diagnostics_recent_errors_title">最近错误</string>
+    <string name="diagnostics_recent_errors_title">最近记录</string>
     <string name="diagnostics_count_format">%1$d 条</string>
     <string name="diagnostics_empty_title">暂无诊断日志</string>
     <string name="diagnostics_empty_message">连接或功能执行失败时，会自动记录到这里。</string>
@@ -776,6 +776,7 @@
     <string name="home_usb_auto_tcpip_title">自动开启远程连接</string>
     <string name="home_usb_auto_tcpip_desc">USB 连接成功后自动执行 tcpip 并获取设备 IP，可通过 WiFi 连接</string>
     <string name="home_usb_tcpip_success">已开启远程连接（端口 %1$d）</string>
+    <string name="home_usb_tcpip_success_no_ip">已开启远程连接（端口 %1$d），但未读取到设备 WiFi IP（设备可能未连接 WiFi）</string>
     <string name="home_usb_tcpip_success_ip_filled">已开启远程连接（端口 %1$d），已填入设备 IP</string>
     <string name="home_usb_tcpip_failed">开启远程连接失败</string>
     <string name="home_usb_tcpip_failed_hint">设备仍通过 USB 连接，请检查 USB 连接后重试。</string>

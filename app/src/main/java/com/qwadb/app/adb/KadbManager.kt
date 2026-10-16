@@ -5,6 +5,8 @@ import android.hardware.usb.UsbManager
 import com.flyfishxu.kadb.Kadb
 import com.qwadb.app.R
 import com.qwadb.app.apps.AppDisplayEnricher
+import com.qwadb.app.diagnostics.DiagnosticLogger
+import com.qwadb.app.diagnostics.DiagnosticModule
 import com.qwadb.app.i18n.appString
 import com.qwadb.app.model.AdbOperationResult
 import com.qwadb.app.model.AppInfo
@@ -196,8 +198,11 @@ class KadbManager {
 
     /**
      * 向 adbd 发送 `tcpip:<port>` 服务请求（等价于桌面 `adb tcpip`）。
-     * 注意：设备端 adbd 会因端口属性变化而重启，当前会话可能随之中断，
-     * 调用方应在成功后自行清理会话状态。
+     *
+     * adbd 收到请求后创建服务线程、先回 OKAY，随后设置 `service.adb.tcp.port`
+     * 并触发 init 重启 adbd —— 连接随时可能断开。因此**收到 OKAY 即视为请求已被
+     * 接受**，之后关闭流的失败（连接已断）不影响结果；调用方应在成功后自行清理
+     * 会话状态。
      */
     suspend fun enableTcpIp(port: Int): AdbOperationResult<String> = withContext(Dispatchers.IO) {
         val kadb = activeKadb ?: return@withContext AdbOperationResult.Failure(
@@ -206,7 +211,16 @@ class KadbManager {
         )
 
         runCatching {
-            kadb.open("tcpip:$port").use { }
+            val stream = kadb.open("tcpip:$port")
+            runCatching { stream.close() }.onFailure { error ->
+                DiagnosticLogger.recordInfo(
+                    module = DiagnosticModule.UsbOtg,
+                    operation = "tcpip 连接关闭",
+                    target = "tcpip:$port",
+                    message = "已收到 OKAY；关闭流时连接已断开（adbd 重启，属预期现象）：" +
+                        error.message.orEmpty().take(120),
+                )
+            }
             AdbOperationResult.Success(port.toString())
         }.getOrElse { error ->
             AdbOperationResult.Failure(
